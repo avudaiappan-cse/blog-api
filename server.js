@@ -147,15 +147,19 @@ app.post("/user/login", async (req, res) => {
   }
   try {
     const user = await User.findOne({ email: req.body.email });
+    console.log(user);
     if (!user) return res.status(400).send({ error: "Invalid Credentials!" });
     const isMatch = await bcrypt.compare(req.body.password, user.password);
+    console.log(isMatch);
     if (!isMatch)
       return res.status(400).send({ error: "Invalid Credentials!" });
+    console.log('Below not running!');
     const token = jwt.sign(
       { _id: user._id, email: user.email },
-      JWT_Secret,
+      process.env.JWT_Secret,
       { expiresIn: "5h" }
     );
+    console.log('Im not running!');
     user.tokens = user.tokens.concat({ token });
     await user.save();
     res.send({ user, token });
