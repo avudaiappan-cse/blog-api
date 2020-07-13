@@ -3,11 +3,12 @@ const mongoose = require("mongoose");
 const bodyParser = require("body-parser");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const multer = require('multer');
-const cors = require('cors');
+const multer = require("multer");
+const cors = require("cors");
 
 const Post = require("./models/Post");
 const User = require("./models/User");
+const Links = require("./models/Links");
 
 const app = express();
 
@@ -17,12 +18,12 @@ app.use(cors());
 
 const upload = multer({
   limits: 1000000,
-  fileFilter(req,file,cb){
-    if(!file.originalname.match(/(.jpg|.jpeg|.png)$/i)){
+  fileFilter(req, file, cb) {
+    if (!file.originalname.match(/(.jpg|.jpeg|.png)$/i)) {
       return cb(new Error("Plese upload image!"));
     }
-    cb(undefined, true)
-  }
+    cb(undefined, true);
+  },
 });
 
 const port = process.env.PORT || 8000;
@@ -47,7 +48,7 @@ const checkValidEntries = (post) => {
     "publishedAt",
     "author",
     "tags",
-    "image"
+    "image",
   ];
   const entries = Object.keys(post).filter((key) => {
     if (!validEntries.includes(key)) return key;
@@ -79,12 +80,12 @@ app.get("/api/v1/myblog", async (req, res) => {
   }
 });
 
-app.post("/api/v1/myblog", upload.single('image'), async (req, res) => {
-  const entries = checkValidEntries({...req.body, image:req.file});
+app.post("/api/v1/myblog", upload.single("image"), async (req, res) => {
+  const entries = checkValidEntries({ ...req.body, image: req.file });
   if (entries.length > 0)
     return res.status(400).send({ error: "Invalid Entries found!" });
   try {
-    const post = await new Post({...req.body, image: req.file.buffer});
+    const post = await new Post({ ...req.body, image: req.file.buffer });
     await post.save();
     res.status(201).send(post);
   } catch (err) {
@@ -153,13 +154,13 @@ app.post("/user/login", async (req, res) => {
     console.log(isMatch);
     if (!isMatch)
       return res.status(400).send({ error: "Invalid Credentials!" });
-    console.log('Below not running!');
+    console.log("Below not running!");
     const token = jwt.sign(
       { _id: user._id, email: user.email },
       process.env.JWT_Secret,
       { expiresIn: "5h" }
     );
-    console.log('Im not running!');
+    console.log("Im not running!");
     user.tokens = user.tokens.concat({ token });
     await user.save();
     res.send({ user, token });
@@ -168,15 +169,46 @@ app.post("/user/login", async (req, res) => {
   }
 });
 
-app.get('/user/logout', auth, async(req,res)=>{
-    const userInfo = req.user;
-    const token = req.token;
-    const user = await User.findById(userInfo._id);
-    if(!user || !token) return res.status(401).send({error: "Please login to continue!"});
-    user.tokens = user.tokens.filter((loginToken)=>loginToken!==token);
-    await user.save();
-    res.status(204).send();
-})
+app.get("/user/logout", auth, async (req, res) => {
+  const userInfo = req.user;
+  const token = req.token;
+  const user = await User.findById(userInfo._id);
+  if (!user || !token)
+    return res.status(401).send({ error: "Please login to continue!" });
+  user.tokens = user.tokens.filter((loginToken) => loginToken !== token);
+  await user.save();
+  res.status(204).send();
+});
+app.get("/links", async (req, res) => {
+  const links = await Links.find();
+  res.status(200).send(links);
+});
+app.get("/links/:id", async (req, res) => {
+  const id = req.params.id;
+  const link = await Links.findById(id);
+  res.status(200).send(link);
+});
+app.post("/links", async (req, res) => {
+  const { linkName, linkURL } = req.body;
+  const newLink = new Links({
+    linkName,
+    linkURL,
+  });
+  await newLink.save();
+  res.status(201).send(newLink);
+});
+
+app.patch("/links/:id", async (req, res) => {
+  const link = await Links.findByIdAndUpdate(req.params.id, req.body, {
+    new: true,
+  });
+  res.status(202).send(link);
+});
+
+app.delete("/links/:id", async (req, res) => {
+  await Links.findByIdAndDelete(req.params.id);
+  res.status(202).send({ status: "Success!" });
+});
 
 app.get("*", (req, res) => {
   res.status(404).send({
